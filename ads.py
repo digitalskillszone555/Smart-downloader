@@ -1,31 +1,28 @@
 import streamlit.components.v1 as components
 
-def _ad_template(label: str, height: int = 90):
-    """Responsive dark-themed ad placeholder."""
-    return f"""
-    <div style="
-        text-align: center;
-        padding: 15px;
-        margin: 10px 0;
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px dashed #334155;
-        border-radius: 12px;
-        color: #64748b;
-        font-family: sans-serif;
-        font-size: 13px;
-        transition: border 0.3s ease;
-    " onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
-        <div style="font-weight: 600; margin-bottom: 4px;">{label}</div>
-        <div style="font-size: 11px; opacity: 0.8;">Adsterra / AdSense / PropellerAds Placeholder</div>
-        <!-- Paste your script tags below this line -->
+def show_top_ad():
+    """Adsterra 728x90 Banner Ad for the Top of the page."""
+    ad_code = """
+    <div style="text-align: center;">
+        <script type="text/javascript">
+            atOptions = {
+                'key' : 'b71b21554137cf4d1e4e4d5d9e26fa97',
+                'format' : 'iframe',
+                'height' : 90,
+                'width' : 728,
+                'params' : {}
+            };
+        </script>
+        <script type="text/javascript" src="https://www.highperformanceformat.com/b71b21554137cf4d1e4e4d5d9e26fa97/invoke.js"></script>
     </div>
     """
-
-def show_top_ad():
-    components.html(_ad_template("TOP BANNER AD"), height=110)
+    # height slightly more than 90 to ensure no scrollbar
+    components.html(ad_code, height=110)
 
 def show_middle_ad():
-    components.html(_ad_template("NATIVE MIDDLE AD", height=100), height=120)
+    """Placeholder for middle ad - you can add another code here later."""
+    pass
 
 def show_bottom_ad():
-    components.html(_ad_template("BOTTOM STICKY AD"), height=110)
+    """Placeholder for bottom ad - you can add another code here later."""
+    pass
