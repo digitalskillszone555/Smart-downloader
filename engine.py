@@ -4,18 +4,20 @@ import requests
 import subprocess
 import sys
 import shutil
+import random
 from pathlib import Path
 from typing import Optional, Callable
 
 import streamlit as st
 from yt_dlp import YoutubeDL
 
-# Premium User-Agent for modern browser simulation
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0.0.0 Safari/537.36"
-)
+# List of Premium User-Agents for rotation to avoid bot detection
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+]
 
 def check_ffmpeg() -> bool:
     """Check if ffmpeg is installed and accessible in the system PATH."""
@@ -43,11 +45,11 @@ def get_downloads_dir() -> Path:
 def _sanitize_filename(name: str) -> str:
     """SecOps Hardening: Removes any characters that could allow path traversal or shell injection."""
     clean = re.sub(r'[^\w\-_.]', '_', name)
-    # Prevent hidden files or directory climbing
     clean = clean.lstrip('.')
     return clean if clean else "downloaded_media"
 
 def _get_common_opts(downloads_dir: Path, progress_hook: Optional[Callable] = None):
+    """Builds the ultimate anti-block options for yt-dlp."""
     return {
         "outtmpl": str(downloads_dir / "%(title).80s_%(id)s.%(ext)s"),
         "quiet": True,
@@ -55,11 +57,22 @@ def _get_common_opts(downloads_dir: Path, progress_hook: Optional[Callable] = No
         "nocheckcertificate": True,
         "ignoreerrors": False,
         "logtostderr": False,
-        "user_agent": USER_AGENT,
-        "restrictfilenames": True, # Prevents spaces and weird chars in filenames
+        "user_agent": random.choice(USER_AGENTS), # Selects a random browser
+        "restrictfilenames": True, 
         "age_limit": 17,
         "geo_bypass": True,
         "noprogress": True,
+        # THE MAGIC SAUCE TO FIX 403 FORBIDDEN ON YOUTUBE:
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web_safari", "android", "web", "default"]
+            }
+        },
+        "http_headers": {
+            "Accept-Language": "en-US,en;q=0.9,bn;q=0.8",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.google.com/"
+        }
     }
 
 def download_video(url: str, quality_label: str, progress_hook: Optional[Callable] = None) -> Path:
@@ -95,16 +108,17 @@ def download_audio(url: str, quality_kbps: str = "320", progress_hook: Optional[
 
 def download_image(url: str, progress_callback: Optional[Callable] = None) -> Path:
     downloads_dir = get_downloads_dir()
+    current_agent = random.choice(USER_AGENTS)
     
     try:
-        with YoutubeDL({"quiet": True, "skip_download": True, "user_agent": USER_AGENT}) as ydl:
+        with YoutubeDL({"quiet": True, "skip_download": True, "user_agent": current_agent}) as ydl:
             info = ydl.extract_info(url, download=False)
             img_url = info.get("url") if info.get("ext") in ["jpg", "png", "webp", "jpeg"] else info.get("thumbnail")
             img_url = img_url or url
     except:
         img_url = url
 
-    response = requests.get(img_url, headers={"User-Agent": USER_AGENT}, stream=True, timeout=20)
+    response = requests.get(img_url, headers={"User-Agent": current_agent, "Referer": "https://www.google.com/"}, stream=True, timeout=20)
     response.raise_for_status()
     
     content_type = response.headers.get("Content-Type", "").lower()
@@ -112,13 +126,11 @@ def download_image(url: str, progress_callback: Optional[Callable] = None) -> Pa
     if "png" in content_type: ext = ".png"
     elif "webp" in content_type: ext = ".webp"
     
-    # SecOps Sanitization
     raw_name = img_url.split('/')[-1].split('?')[0]
     safe_name = _sanitize_filename(raw_name)
     
     save_path = (downloads_dir / f"{safe_name}{ext}").resolve()
     
-    # Verify the path is still inside the intended directory (Path Traversal Protection)
     if not str(save_path).startswith(str(downloads_dir)):
         raise PermissionError("Suspicious file path detected.")
 
