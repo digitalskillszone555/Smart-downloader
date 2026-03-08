@@ -91,6 +91,14 @@ def inject_premium_dark_theme() -> None:
             margin-bottom: 1rem;
             font-size: 0.85rem;
         }
+        .error-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            border-radius: 0.8rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            color: #fca5a5;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -110,8 +118,7 @@ def main() -> None:
     if not has_ffmpeg:
         st.markdown("""
             <div class="warning-box">
-                ⚠️ <b>Environmental Alert:</b> ffmpeg is missing. 4K Video Merging and MP3 extraction will be limited.
-                Please install ffmpeg for the full experience.
+                ⚠️ <b>Environmental Alert:</b> ffmpeg is missing on the server. 4K Video Merging and MP3 extraction might be limited.
             </div>
         """, unsafe_allow_html=True)
 
@@ -179,12 +186,12 @@ def main() -> None:
                         status_text.text("Merging streams and finalizing container...")
 
                 try:
-                    with st.spinner("Powering up the engine..."):
+                    with st.spinner("Bypassing security and powering up the engine..."):
                         if kind == "Photo":
                             file_path = download_image(st.session_state.selected_url, progress_callback=progress_bar.progress)
                         elif kind == "Video":
                             if not has_ffmpeg and "p" in quality and int(quality.split('p')[0].split('(')[-1]) > 720:
-                                st.warning("Notice: Downloading without ffmpeg may result in lower resolution or no audio.")
+                                st.warning("Notice: Downloading without ffmpeg may result in lower resolution.")
                             file_path = download_video(st.session_state.selected_url, quality, progress_hook=yt_dlp_hook)
                         else:
                             file_path = download_audio(st.session_state.selected_url, quality, progress_hook=yt_dlp_hook)
@@ -193,16 +200,23 @@ def main() -> None:
                     st.markdown(f"""
                         <div class="success-box">
                             <span style="color: #10b981; font-weight: bold;">✅ DOWNLOAD COMPLETE</span><br/>
-                            <span style="font-size: 0.9rem;">File saved to: </span><code style="color: #e5e7eb;">{file_path}</code>
+                            <span style="font-size: 0.9rem;">File saved successfully! Ready to play.</span><br/>
+                            <code style="color: #e5e7eb; font-size: 0.8rem;">Path: {file_path}</code>
                         </div>
                     """, unsafe_allow_html=True)
                     
                 except Exception as e:
-                    error_msg = str(e)
-                    if "ffmpeg" in error_msg.lower():
-                        st.error("Engine Error: FFmpeg is required for this specific high-quality format.")
+                    error_msg = str(e).lower()
+                    
+                    # Smart Error Handling Logic
+                    if "ffmpeg" in error_msg:
+                        st.markdown('<div class="error-box">⚙️ <b>Engine Error:</b> FFmpeg is required for this specific high-quality format. Try a lower resolution.</div>', unsafe_allow_html=True)
+                    elif "403" in error_msg or "forbidden" in error_msg:
+                        st.markdown('<div class="error-box">🛡️ <b>Security Block:</b> YouTube temporarily blocked the request. Our rotating engine is refreshing. Please try again in a few seconds!</div>', unsafe_allow_html=True)
+                    elif "sign in" in error_msg or "private" in error_msg:
+                        st.markdown('<div class="error-box">🔒 <b>Private Video:</b> This media requires a login or is age-restricted and cannot be downloaded publicly.</div>', unsafe_allow_html=True)
                     else:
-                        st.error(f"Execution Error: {error_msg}")
+                        st.markdown(f'<div class="error-box">❌ <b>Execution Error:</b> Something went wrong.<br><small>{str(e)}</small></div>', unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
